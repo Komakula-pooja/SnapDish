@@ -51,7 +51,7 @@ const PlaygroundPage = () => {
         formData.append('preference', preference || 'any');
 
         try {
-            const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/generate-recipe`, formData, {
+            const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/generate-recipe`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             setRecipe(response.data.recipe);
