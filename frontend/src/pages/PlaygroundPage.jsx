@@ -51,7 +51,7 @@ const PlaygroundPage = () => {
         formData.append('preference', preference || 'any');
 
         try {
-            const response = await axios.post('http://127.0.0.1:8000/api/generate-recipe', formData, {
+            const response = await axios.post('https://snapdish.onrender.com/api/generate-recipe', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
             setRecipe(response.data.recipe);
