@@ -104,7 +104,7 @@ const Navbar = () => {
                 {/* Auth Button */}
                 <div className="hidden md:block">
                     <Link
-                        to="#"
+                        to="/auth"
                         className="btn-auth px-6 py-2 rounded-full font-semibold transition-all duration-300
                             bg-transparent border text-white "
                     >
