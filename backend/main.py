@@ -16,7 +16,7 @@ genai.configure(api_key=api_key)
 app = FastAPI()
 
 origins = [
-    "http://localhost:5173", 
+    "http://localhost:5173",
     "https://snap-dish-ai.vercel.app",
 ]
 
@@ -24,47 +24,47 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"], 
-    allow_headers=["*"], 
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-
 
 model = genai.GenerativeModel('gemini-2.0-flash')
 
 
 @app.post("/api/generate-recipe")
 async def generate_recipe(
-        preference: str = Form("any"),  
-        image: UploadFile = File(...)   
+        preference: str = Form("any"),
+        images: list[UploadFile] = File(...)
 ):
-    """
-    This endpoint receives an image and a dietary preference,
-    then uses Gemini to generate a recipe.
-    """
-    if not image.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File provided is not an image.")
+    if not images:
+        raise HTTPException(status_code=400, detail="No images were uploaded.")
 
     try:
-        image_content = await image.read()
 
-        pil_image = Image.open(io.BytesIO(image_content))
+        prompt_parts = [
+            f"""
+            You are a creative chef. Based on the ingredients in these images and the user's preference for '{preference}' food, 
+            generate a recipe. The recipe should include:
+            1. A catchy title.
+            2. A list of ingredients.
+            3. Step-by-step instructions.
+            Format the response clearly.
+            """
+        ]
 
-        prompt = f"""
-        You are a creative chef. Based on the ingredients in this image and the user's preference for '{preference}' food, 
-        generate a recipe. The recipe should include:
-        1. A catchy title.
-        2. A list of ingredients.
-        3. Step-by-step instructions.
-        Format the response clearly.
-        """
+        for img_file in images:
+            if not img_file.content_type.startswith("image/"):
+                raise HTTPException(status_code=400, detail="One of the files is not an image.")
 
-        response = model.generate_content([prompt, pil_image])
+            image_content = await img_file.read()
+            pil_image = Image.open(io.BytesIO(image_content))
+            prompt_parts.append(pil_image)
 
+        response = model.generate_content(prompt_parts)
         return {"recipe": response.text}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
-
 
 @app.get("/")
 def read_root():
