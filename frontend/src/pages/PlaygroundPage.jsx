@@ -5,14 +5,14 @@ import ImageUploader from '../components/ImageUploader';
 import RecipeDisplay from '../components/RecipeDisplay';
 import { gsap } from 'gsap';
 import { ArrowLeft } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 const PlaygroundPage = () => {
-    const [image, setImage] = useState(null);
+    const [images, setImages] = useState([]);
     const [preference, setPreference] = useState('');
     const [recipe, setRecipe] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    
     const comp = useRef(null);
 
     useLayoutEffect(() => {
@@ -30,15 +30,20 @@ const PlaygroundPage = () => {
 
     const onDrop = useCallback((acceptedFiles) => {
         if (acceptedFiles.length > 0) {
-            setImage(acceptedFiles[0]);
+            setImages(prevImages => [...prevImages, ...acceptedFiles]);
             setRecipe('');
             setError('');
         }
     }, []);
 
+    // Function to remove a single image
+    const removeImage = (indexToRemove) => {
+        setImages(images.filter((_, index) => index !== indexToRemove));
+    };
+
     const handleGenerateRecipe = async () => {
-        if (!image) {
-            setError('Please upload an image first.');
+        if (images.length === 0) {
+            setError('Please upload at least one image.');
             return;
         }
 
@@ -47,7 +52,9 @@ const PlaygroundPage = () => {
         setRecipe('');
 
         const formData = new FormData();
-        formData.append('image', image);
+        images.forEach((img) => {
+            formData.append('images', img);
+        });
         formData.append('preference', preference || 'any');
 
         try {
@@ -82,7 +89,7 @@ const PlaygroundPage = () => {
                     {/* Left Column: Inputs */}
                     <div className="playground-panel relative bg-white/5 ring-1 ring-white/10 backdrop-blur-md p-6 rounded-2xl">
                         <h2 className="text-3xl font-bold mb-4 text-gray-200">1. Upload Ingredients</h2>
-                        <ImageUploader onDrop={onDrop} image={image} />
+                        <ImageUploader onDrop={onDrop} images={images} removeImage={removeImage} /> {/* Pass removeImage prop */}
 
                         <h2 className="text-3xl font-bold mt-8 mb-4 text-gray-200">2. Add Preferences</h2>
                         <input
@@ -93,15 +100,18 @@ const PlaygroundPage = () => {
                             className="w-full p-3 bg-white/5 ring-1 ring-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 transition-shadow"
                         />
 
-                        <button
-                            onClick={handleGenerateRecipe}
-                            disabled={isLoading}
-                            className="w-full relative inline-flex items-center justify-center p-0.5 mt-8 overflow-hidden font-medium text-white rounded-lg group disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed"
-                        >
-                            <span className={`relative px-5 py-3 transition-all ease-in duration-75 bg-black border text-green-400 rounded-md ${!isLoading ? 'group-hover:bg-opacity-0' : ''}`}>
-                                {isLoading ? 'The Chef is Thinking...' : 'Generate Recipe'}
-                            </span>
-                        </button>
+                        {/* Conditionally render the button based on images selected */}
+                        {images.length > 0 && (
+                            <button
+                                onClick={handleGenerateRecipe}
+                                disabled={isLoading}
+                                className="w-full relative inline-flex items-center justify-center p-0.5 mt-8 overflow-hidden font-medium text-white rounded-lg group disabled:from-gray-500 disabled:to-gray-600 disabled:cursor-not-allowed"
+                            >
+                                <span className={`relative px-5 py-3 transition-all ease-in duration-75 bg-black border text-green-400 rounded-md ${!isLoading ? 'group-hover:bg-opacity-0' : ''}`}>
+                                    {isLoading ? 'The Chef is Thinking...' : 'Generate Recipe'}
+                                </span>
+                            </button>
+                        )}
                     </div>
 
                     {/* Right Column: Output */}
