@@ -27,9 +27,13 @@ app.add_middleware(
 
 # ---------- Hugging Face helpers ----------
 
-API_URL = "https://router.huggingface.co/hf-inference/models/Salesforce/blip-image-captioning-large"
-MISTRAL_URL = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2"
+# Change these lines in your code:
 
+# BLIP Model (Image Captioning)
+API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
+
+# Mistral Model (Recipe Generation)
+MISTRAL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
 
 HEADERS = {
     "Authorization": f"Bearer {os.getenv('HF_API_TOKEN')}"
@@ -51,32 +55,32 @@ def caption_image(image_bytes: bytes):
 
 
 def generate_recipe_text(ingredients_text: str, preference: str) -> str:
-    prompt = f"""
+    # Mistral expects instructions inside [INST] tags
+    prompt = f"""[INST]
 You are a creative chef.
-
-Detected ingredients:
-{ingredients_text}
-
-User preference:
-{preference}
+Detected ingredients: {ingredients_text}
+User preference: {preference}
 
 Generate a recipe with:
 1. Catchy title
 2. Ingredients list
 3. Step-by-step instructions
-"""
+[/INST]"""
 
     payload = {
         "inputs": prompt,
         "parameters": {
-            "max_new_tokens": 300,
-            "temperature": 0.7
+            "max_new_tokens": 512,  # Increased length for full recipes
+            "temperature": 0.7,
+            "return_full_text": False # Prevents the model from repeating the prompt
         }
     }
 
     response = requests.post(MISTRAL_URL, headers=HEADERS, json=payload, timeout=60)
+    
     if response.status_code != 200:
-        raise Exception(response.text)
+        # Better error logging to see exactly what HF says
+        raise Exception(f"HF Error {response.status_code}: {response.text}")
 
     result = response.json()
 
