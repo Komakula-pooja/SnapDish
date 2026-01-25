@@ -29,9 +29,10 @@ app.add_middleware(
 
 # Change these lines in your code:
 
-# CORRECT URLs for the Free Serverless API
-API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
-MISTRAL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
+# 1. Use the "Base" version of BLIP (More reliable on free tier than Large)
+API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base"
+
+MISTRAL_URL = "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta"
 
 HEADERS = {
     "Authorization": f"Bearer {os.getenv('HF_API_TOKEN')}"
@@ -39,55 +40,45 @@ HEADERS = {
 
 
 def caption_image(image_bytes: bytes):
-    response = requests.post(
-        API_URL,
-        headers=HEADERS,
-        data=image_bytes,
-        timeout=60
-    )
-
+    response = requests.post(API_URL, headers=HEADERS, data=image_bytes)
     if response.status_code != 200:
-        raise Exception(response.text)
-
+        # This will print the actual error to your terminal if it fails
+        print(f"Caption Error: {response.text}") 
+        raise Exception(f"Captioning failed: {response.status_code}")
     return response.json()[0]["generated_text"]
 
-
 def generate_recipe_text(ingredients_text: str, preference: str) -> str:
-    # Mistral expects instructions inside [INST] tags
-    prompt = f"""[INST]
-You are a creative chef.
-Detected ingredients: {ingredients_text}
-User preference: {preference}
+    # Zephyr uses <|system|>, <|user|>, and <|assistant|> tags
+    prompt = f"""<|system|>
+You are a helpful chef. Generate a recipe based on the user's ingredients.
+</s>
+<|user|>
+I have these ingredients: {ingredients_text}
+My preference is: {preference}
 
-Generate a recipe with:
-1. Catchy title
-2. Ingredients list
-3. Step-by-step instructions
-[/INST]"""
+Please provide:
+1. A Title
+2. Ingredients List
+3. Instructions
+</s>
+<|assistant|>"""
 
     payload = {
         "inputs": prompt,
         "parameters": {
-            "max_new_tokens": 512,  # Increased length for full recipes
+            "max_new_tokens": 512,
             "temperature": 0.7,
-            "return_full_text": False # Prevents the model from repeating the prompt
+            "return_full_text": False
         }
     }
 
-    response = requests.post(MISTRAL_URL, headers=HEADERS, json=payload, timeout=60)
-    
+    response = requests.post(MISTRAL_URL, headers=HEADERS, json=payload)
     if response.status_code != 200:
-        # Better error logging to see exactly what HF says
-        raise Exception(f"HF Error {response.status_code}: {response.text}")
-
+        print(f"Recipe Error: {response.text}")
+        raise Exception(f"Recipe generation failed: {response.status_code}")
+    
     result = response.json()
-
-    if isinstance(result, list):
-        return result[0]["generated_text"]
-    elif isinstance(result, dict) and "generated_text" in result:
-        return result["generated_text"]
-    else:
-        raise Exception(f"Unexpected HF response: {result}")
+    return result[0]["generated_text"]
 
 
 
