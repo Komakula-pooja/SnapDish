@@ -29,11 +29,9 @@ app.add_middleware(
 
 # Change these lines in your code:
 
-# BLIP Model (Image Captioning)
+# CORRECT URLs for the Free Serverless API
 API_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
-
-# Mistral Model (Recipe Generation)
-MISTRAL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+MISTRAL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
 
 HEADERS = {
     "Authorization": f"Bearer {os.getenv('HF_API_TOKEN')}"
