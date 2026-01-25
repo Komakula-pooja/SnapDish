@@ -1,17 +1,16 @@
 import os
-import google.generativeai as genai
+import io
+import requests
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from PIL import Image
-import io
 
 load_dotenv()
 
-api_key = os.getenv("GOOGLE_API_KEY")
-if not api_key:
-    raise ValueError("API key not found. Please set the GOOGLE_API_KEY environment variable.")
-genai.configure(api_key=api_key)
+HF_API_TOKEN = os.getenv("HF_API_TOKEN")
+if not HF_API_TOKEN:
+    raise ValueError("HF_API_TOKEN not found in environment variables")
 
 app = FastAPI()
 
@@ -28,40 +27,79 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = genai.GenerativeModel('gemini-2.0-flash')
+# ---------- Hugging Face helpers ----------
 
+BLIP_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
+MISTRAL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+
+HEADERS = {
+    "Authorization": f"Bearer {HF_API_TOKEN}"
+}
+
+
+def analyze_image(image_bytes: bytes) -> str:
+    response = requests.post(BLIP_URL, headers=HEADERS, data=image_bytes)
+    if response.status_code != 200:
+        raise Exception(response.text)
+    return response.json()[0]["generated_text"]
+
+
+def generate_recipe_text(ingredients_text: str, preference: str) -> str:
+    prompt = f"""
+You are a creative chef.
+
+Detected ingredients:
+{ingredients_text}
+
+User preference:
+{preference}
+
+Generate a recipe with:
+1. Catchy title
+2. Ingredients list
+3. Step-by-step instructions
+"""
+
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 400,
+            "temperature": 0.7
+        }
+    }
+
+    response = requests.post(MISTRAL_URL, headers=HEADERS, json=payload)
+    if response.status_code != 200:
+        raise Exception(response.text)
+
+    return response.json()[0]["generated_text"]
+
+
+# ---------- API Routes ----------
 
 @app.post("/api/generate-recipe")
 async def generate_recipe(
-        preference: str = Form("any"),
-        images: list[UploadFile] = File(...)
+    preference: str = Form("any"),
+    images: list[UploadFile] = File(...)
 ):
     if not images:
         raise HTTPException(status_code=400, detail="No images were uploaded.")
 
     try:
-
-        prompt_parts = [
-            f"""
-            You are a creative chef. Based on the ingredients in these images and the user's preference for '{preference}' food, 
-            generate a recipe. The recipe should include:
-            1. A catchy title.
-            2. A list of ingredients.
-            3. Step-by-step instructions.
-            Format the response clearly.
-            """
-        ]
+        captions = []
 
         for img_file in images:
             if not img_file.content_type.startswith("image/"):
                 raise HTTPException(status_code=400, detail="One of the files is not an image.")
 
-            image_content = await img_file.read()
-            pil_image = Image.open(io.BytesIO(image_content))
-            prompt_parts.append(pil_image)
+            image_bytes = await img_file.read()
+            caption = analyze_image(image_bytes)
+            captions.append(caption)
 
-        response = model.generate_content(prompt_parts)
-        return {"recipe": response.text}
+        ingredients_text = ", ".join(captions)
+        recipe = generate_recipe_text(ingredients_text, preference)
+
+        return {"recipe": recipe}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
