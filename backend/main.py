@@ -29,8 +29,8 @@ app.add_middleware(
 
 # ---------- Hugging Face helpers ----------
 
-BLIP_URL = "https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-large"
-MISTRAL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+BLIP_URL = "https://router.huggingface.co/hf-inference/models/Salesforce/blip-image-captioning-large"
+MISTRAL_URL = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2"
 
 HEADERS = {
     "Authorization": f"Bearer {HF_API_TOKEN}"
