@@ -1,10 +1,8 @@
 import os
-import io
 import requests
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from PIL import Image
 
 load_dotenv()
 
@@ -29,18 +27,26 @@ app.add_middleware(
 
 # ---------- Hugging Face helpers ----------
 
-BLIP_URL = "https://router.huggingface.co/hf-inference/models/Salesforce/blip-image-captioning-large"
+API_URL = "https://router.huggingface.co/hf-inference/models/Salesforce/blip-image-captioning-large"
 MISTRAL_URL = "https://router.huggingface.co/hf-inference/models/mistralai/Mistral-7B-Instruct-v0.2"
 
+
 HEADERS = {
-    "Authorization": f"Bearer {HF_API_TOKEN}"
+    "Authorization": f"Bearer {os.getenv('HF_API_TOKEN')}"
 }
 
 
-def analyze_image(image_bytes: bytes) -> str:
-    response = requests.post(BLIP_URL, headers=HEADERS, data=image_bytes)
+def caption_image(image_bytes: bytes):
+    response = requests.post(
+        API_URL,
+        headers=HEADERS,
+        data=image_bytes,
+        timeout=60
+    )
+
     if response.status_code != 200:
         raise Exception(response.text)
+
     return response.json()[0]["generated_text"]
 
 
@@ -63,16 +69,24 @@ Generate a recipe with:
     payload = {
         "inputs": prompt,
         "parameters": {
-            "max_new_tokens": 400,
+            "max_new_tokens": 300,
             "temperature": 0.7
         }
     }
 
-    response = requests.post(MISTRAL_URL, headers=HEADERS, json=payload)
+    response = requests.post(MISTRAL_URL, headers=HEADERS, json=payload, timeout=60)
     if response.status_code != 200:
         raise Exception(response.text)
 
-    return response.json()[0]["generated_text"]
+    result = response.json()
+
+    if isinstance(result, list):
+        return result[0]["generated_text"]
+    elif isinstance(result, dict) and "generated_text" in result:
+        return result["generated_text"]
+    else:
+        raise Exception(f"Unexpected HF response: {result}")
+
 
 
 # ---------- API Routes ----------
@@ -93,7 +107,7 @@ async def generate_recipe(
                 raise HTTPException(status_code=400, detail="One of the files is not an image.")
 
             image_bytes = await img_file.read()
-            caption = analyze_image(image_bytes)
+            caption = caption_image(image_bytes)
             captions.append(caption)
 
         ingredients_text = ", ".join(captions)
