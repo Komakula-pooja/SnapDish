@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useLayoutEffect, useRef } from 'react';
+import React, { useState, useCallback, useLayoutEffect, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import ImageUploader from '../components/ImageUploader';
@@ -69,6 +69,12 @@ const PlaygroundPage = () => {
             setIsLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (recipe) {
+            setImages([]);
+        }
+    }, [recipe]);
 
     return (
         <div ref={comp} className="min-h-screen bg-black text-white font-sans overflow-hidden">
